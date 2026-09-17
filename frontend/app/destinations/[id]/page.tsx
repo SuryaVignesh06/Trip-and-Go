@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { UserShell } from "../../components/user-shell";
 import { api, Destination } from "../../lib/api";
 
+type WeatherResponse = { temperature: number; condition: string; source: string };
+
 export default function DestinationDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const [destination, setDestination] = useState<Destination | null>(null);
@@ -16,7 +18,14 @@ export default function DestinationDetailsPage() {
     setLoading(true);
     setError("");
     try {
-      setDestination(await api<Destination>(`/destinations/${encodeURIComponent(id)}`));
+      const destinationData = await api<Destination>(`/destinations/${encodeURIComponent(id)}`);
+      setDestination(destinationData);
+      try {
+        const weather = await api<WeatherResponse>(`/weather?city=${encodeURIComponent(destinationData.name)}&country=${encodeURIComponent(destinationData.country || "")}`);
+        setDestination({ ...destinationData, weather: { temperature: `${Math.round(weather.temperature)}°C`, condition: weather.condition, source: weather.source } });
+      } catch {
+        // Keep destination details available when the provider is unavailable or not configured.
+      }
     } catch (reason) {
       setDestination(null);
       setError(reason instanceof Error ? reason.message : "Destination details could not be loaded.");

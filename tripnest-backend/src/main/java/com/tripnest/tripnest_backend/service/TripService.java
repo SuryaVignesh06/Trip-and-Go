@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import com.tripnest.tripnest_backend.entity.Trip;
+import com.tripnest.tripnest_backend.entity.TripMember;
 import com.tripnest.tripnest_backend.entity.User;
 
 import org.springframework.security.core.Authentication;
@@ -28,8 +29,9 @@ public class TripService {
     
     private final DestinationRepository destinationRepository;
     private final TripMemberRepository tripMemberRepository;
-    
-    
+    private final TripAccessService tripAccessService;
+    private final NotificationService notificationService;
+
     private User getCurrentUser() {
 
         Authentication authentication =
@@ -51,19 +53,15 @@ public class TripService {
         return trips;
     }
 	
-    public Trip getTripById(Integer tripId) {
-        User currentUser = getCurrentUser();
+  public Trip getTripById(Integer tripId) {
+    User currentUser = getCurrentUser();
 
-        Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+    Trip trip = tripAccessService.getTrip(tripId);
 
-        if (!trip.getOwner().getId().equals(currentUser.getId())
-                && tripMemberRepository.findByTripIdAndUserId(tripId, currentUser.getId()).isEmpty()) {
-            throw new RuntimeException("You are not authorized to access this trip");
-        }
+    tripAccessService.checkAccess(tripId, currentUser);
 
-        return trip;
-    }
+    return trip;
+}
     
     public Trip createTrip(TripRequest request) {
 
@@ -87,24 +85,118 @@ public class TripService {
         return tripRepository.save(trip);
     }
     
-    public Trip updateTrip(Integer tripId, TripRequest request) {
+public Trip updateTrip(
+        Integer tripId,
+        TripRequest request) {
 
-        validateRequest(request);
+    validateRequest(request);
 
-        Trip trip = getTripById(tripId);
+    User currentUser = getCurrentUser();
 
-        Destination destination = destinationRepository.findById(request.getDestinationId())
-                .orElseThrow(() -> new RuntimeException("Destination not found"));
+    Trip trip =
+            tripAccessService.getTrip(tripId);
 
-        trip.setDestination(destination);
-        trip.setTitle(request.getTitle());
-		trip.setDescription(request.getDescription());
-        trip.setStartDate(request.getStartDate());
-        trip.setEndDate(request.getEndDate());
-        trip.setStatus(request.getStatus());
+    if (!tripAccessService.isOwner(
+            tripId,
+            currentUser)) {
 
-        return tripRepository.save(trip);
+        throw new RuntimeException(
+                "Only the trip owner can update this trip");
     }
+
+    Destination destination =
+            destinationRepository
+                    .findById(
+                            request.getDestinationId())
+                    .orElseThrow(() ->
+                            new RuntimeException(
+                                    "Destination not found"));
+
+    boolean destinationChanged =
+            trip.getDestination() == null
+                    || !trip.getDestination()
+                            .getId()
+                            .equals(destination.getId());
+
+    boolean startDateChanged =
+            !java.util.Objects.equals(
+                    trip.getStartDate(),
+                    request.getStartDate());
+
+    boolean endDateChanged =
+            !java.util.Objects.equals(
+                    trip.getEndDate(),
+                    request.getEndDate());
+
+    trip.setDestination(destination);
+    trip.setTitle(request.getTitle());
+    trip.setDescription(request.getDescription());
+    trip.setStartDate(request.getStartDate());
+    trip.setEndDate(request.getEndDate());
+    trip.setStatus(request.getStatus());
+
+    Trip savedTrip =
+            tripRepository.save(trip);
+
+    /*
+     * Notify other members only when
+     * core travel details changed.
+     */
+    if (destinationChanged
+            || startDateChanged
+            || endDateChanged) {
+
+        String message =
+                "Travel update for trip \""
+                        + savedTrip.getTitle()
+                        + "\". ";
+
+        if (destinationChanged) {
+            message +=
+                    "The destination has been changed to "
+                            + destination.getName()
+                            + ". ";
+        }
+
+        if (startDateChanged
+                || endDateChanged) {
+
+            message +=
+                    "The trip dates are now "
+                            + savedTrip.getStartDate()
+                            + " to "
+                            + savedTrip.getEndDate()
+                            + ".";
+        }
+
+        List<TripMember> members =
+                tripMemberRepository.findByTripId(
+                        tripId);
+
+        for (TripMember member : members) {
+
+            /*
+             * Do not notify the user who made
+             * the update.
+             */
+            if (member.getUser()
+                    .getId()
+                    .equals(currentUser.getId())) {
+
+                continue;
+            }
+
+            notificationService
+                    .createNotificationIfNotExists(
+                            member.getUser(),
+                            "Travel Update",
+                            message,
+                            "TRAVEL_UPDATE");
+        }
+    }
+
+    return savedTrip;
+}
 
     private void validateRequest(TripRequest request) {
         if (request == null || request.getDestinationId() == null) {
@@ -123,11 +215,17 @@ public class TripService {
         }
     }
     
-    public void deleteTrip(Integer tripId) {
+   public void deleteTrip(Integer tripId) {
+    User currentUser = getCurrentUser();
 
-        Trip trip = getTripById(tripId);
+    Trip trip = tripAccessService.getTrip(tripId);
 
-        tripRepository.delete(trip);
+    if (!tripAccessService.isOwner(tripId, currentUser)) {
+        throw new RuntimeException(
+                "Only the trip owner can delete this trip");
     }
+
+    tripRepository.delete(trip);
+}
     
 }

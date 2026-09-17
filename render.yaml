@@ -1,0 +1,44 @@
+databases:
+  - name: tripnest-db
+    databaseName: tripnest
+    user: tripnest
+    plan: free
+
+services:
+  - type: web
+    name: tripnest-backend
+    runtime: java
+    rootDir: tripnest-backend
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/tripnest-backend-0.0.1-SNAPSHOT.jar
+    envVars:
+      - key: DB_HOST
+        fromDatabase:
+          name: tripnest-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: tripnest-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: tripnest-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: tripnest-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: tripnest-db
+          property: password
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false
+      - key: OPENWEATHER_API_KEY
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false

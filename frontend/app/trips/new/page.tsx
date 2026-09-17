@@ -230,25 +230,6 @@ export default function NewTripPage() {
         </section>
 
         <aside className="space-y-4">
-          <div className="rounded-[28px] border border-[#e5dfd7] bg-gradient-to-br from-[#1d2b35] to-[#0d161d] p-5 text-white shadow-lg shadow-[#dfeae8]">
-            <p className="text-xs uppercase tracking-[0.18em] text-[#9dd8d3]">Preview</p>
-            <h4 className="mt-3 text-2xl font-bold">{summary.title}</h4>
-            <div className="mt-4 space-y-2 text-sm text-slate-200">
-              <div className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2">
-                <span>Destination</span>
-                <span className="font-medium">{summary.destination}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2">
-                <span>Duration</span>
-                <span className="font-medium">{summary.tripLength}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2">
-                <span>Status</span>
-                <span className="font-medium">{summary.mode}</span>
-              </div>
-            </div>
-          </div>
-
           <div className="rounded-[28px] border border-[#e5dfd7] bg-[#f7f8f9] p-5 shadow-sm">
             <p className="text-xs uppercase tracking-[0.18em] text-[#5d7a78]">Quick checklist</p>
             <div className="mt-4 space-y-3">

@@ -9,7 +9,7 @@ type UserShellProps = { title: string; description: string; activePage: string; 
 const navItems = [
   { name: "Dashboard", href: "/dashboard" }, { name: "My Trips", href: "/trips" }, { name: "Destinations", href: "/destinations" },
   { name: "Join a Trip", href: "/trips/join" },
-  { name: "Profile", href: "/profile" }, { name: "Travel Preferences", href: "/preferences" }, { name: "Favourite Destinations", href: "/favorites" },
+  { name: "Profile", href: "/profile" },
   { name: "Travel History", href: "/history" }, { name: "Account Settings", href: "/settings" },
 ];
 

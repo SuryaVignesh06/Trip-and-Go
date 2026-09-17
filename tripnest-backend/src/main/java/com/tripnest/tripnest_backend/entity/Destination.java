@@ -23,6 +23,10 @@ public class Destination {
 
 	private String description;
 
+	private Double latitude;
+
+    private Double longitude;
+
 	@Column(name = "weather_info")
 	private String weatherInfo;
 

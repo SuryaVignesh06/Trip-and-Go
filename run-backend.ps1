@@ -17,7 +17,7 @@ while ($true) {
     }
 
     Write-Host "[$(Get-Date -Format s)] Starting TripNest backend on http://localhost:8080"
-    & .\mvnw.cmd spring-boot:run
+    & .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev
     $exitCode = $LASTEXITCODE
     Write-Warning "TripNest backend exited with code $exitCode. Restarting in 5 seconds..."
     Start-Sleep -Seconds 5

@@ -2,45 +2,48 @@ package com.tripnest.tripnest_backend.service;
 
 import com.tripnest.tripnest_backend.entity.Budget;
 import com.tripnest.tripnest_backend.entity.Trip;
+import com.tripnest.tripnest_backend.entity.User;
 import com.tripnest.tripnest_backend.repository.BudgetRepository;
-import com.tripnest.tripnest_backend.repository.TripRepository;
+import com.tripnest.tripnest_backend.repository.UserRepository;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 
 @Service
 public class BudgetService {
 
     private final BudgetRepository budgetRepository;
-    private final TripRepository tripRepository;
+    private final TripAccessService tripAccessService;
+    private final UserRepository userRepository;
 
-    public BudgetService(BudgetRepository budgetRepository,
-                         TripRepository tripRepository) {
+    public BudgetService(
+            BudgetRepository budgetRepository,
+            TripAccessService tripAccessService,
+            UserRepository userRepository) {
+
         this.budgetRepository = budgetRepository;
-        this.tripRepository = tripRepository;
+        this.tripAccessService = tripAccessService;
+        this.userRepository = userRepository;
     }
 
-    public Budget createBudget(Integer tripId, Budget budget) {
+    public Budget createBudget(
+            Integer tripId,
+            Budget budget) {
 
-        if (budget.getAmount() == null ||
-                budget.getAmount().compareTo(BigDecimal.ZERO) < 0) {
-            throw new RuntimeException("Budget amount cannot be negative");
-        }
+        validateBudget(budget);
 
-        if (budget.getCurrency() == null ||
-                budget.getCurrency().isBlank()) {
-            throw new RuntimeException("Currency is required");
-        }
+        User currentUser = getCurrentUser();
 
-        Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() ->
-                        new RuntimeException("Trip not found"));
+        Trip trip = tripAccessService.getTrip(tripId);
 
-        Optional<Budget> existingBudget =
-                budgetRepository.findByTripId(tripId);
+        tripAccessService.checkOwnerOrGroupAdmin(
+                tripId,
+                currentUser);
 
-        if (existingBudget.isPresent()) {
+        if (budgetRepository.findByTripId(tripId).isPresent()) {
             throw new RuntimeException(
                     "Budget already exists for this trip");
         }
@@ -50,7 +53,14 @@ public class BudgetService {
         return budgetRepository.save(budget);
     }
 
-    public Budget getBudgetByTripId(Integer tripId) {
+    public Budget getBudgetByTripId(
+            Integer tripId) {
+
+        User currentUser = getCurrentUser();
+
+        tripAccessService.checkAccess(
+                tripId,
+                currentUser);
 
         return budgetRepository.findByTripId(tripId)
                 .orElseThrow(() ->
@@ -58,26 +68,67 @@ public class BudgetService {
                                 "Budget not found for this trip"));
     }
 
-    public Budget updateBudget(Integer tripId, Budget updatedBudget) {
+    public Budget updateBudget(
+            Integer tripId,
+            Budget updatedBudget) {
 
-        if (updatedBudget.getAmount() == null ||
-                updatedBudget.getAmount().compareTo(BigDecimal.ZERO) < 0) {
-            throw new RuntimeException("Budget amount cannot be negative");
-        }
+        validateBudget(updatedBudget);
 
-        if (updatedBudget.getCurrency() == null ||
-                updatedBudget.getCurrency().isBlank()) {
-            throw new RuntimeException("Currency is required");
-        }
+        User currentUser = getCurrentUser();
 
-        Budget existingBudget = budgetRepository.findByTripId(tripId)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Budget not found for this trip"));
+        tripAccessService.checkOwnerOrGroupAdmin(
+                tripId,
+                currentUser);
 
-        existingBudget.setAmount(updatedBudget.getAmount());
-        existingBudget.setCurrency(updatedBudget.getCurrency());
+        Budget existingBudget =
+                budgetRepository.findByTripId(tripId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Budget not found for this trip"));
+
+        existingBudget.setAmount(
+                updatedBudget.getAmount());
+
+        existingBudget.setCurrency(
+                updatedBudget.getCurrency());
 
         return budgetRepository.save(existingBudget);
+    }
+
+    private void validateBudget(Budget budget) {
+
+        if (budget == null) {
+            throw new RuntimeException(
+                    "Budget data is required");
+        }
+
+        if (budget.getAmount() == null ||
+                budget.getAmount()
+                        .compareTo(BigDecimal.ZERO) < 0) {
+
+            throw new RuntimeException(
+                    "Budget amount cannot be negative");
+        }
+
+        if (budget.getCurrency() == null ||
+                budget.getCurrency().isBlank()) {
+
+            throw new RuntimeException(
+                    "Currency is required");
+        }
+    }
+
+    private User getCurrentUser() {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext()
+                        .getAuthentication();
+
+        String email = authentication.getName();
+
+        return userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "User not found"));
     }
 }
